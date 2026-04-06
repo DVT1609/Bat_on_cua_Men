@@ -387,32 +387,43 @@ function formatDate(date) {
 // Show Order Detail
 function detailOrder(id) {
     document.querySelector(".modal.detail-order").classList.add("open");
-    let orders = localStorage.getItem("order") ? JSON.parse(localStorage.getItem("order")) : [];
-    let products = localStorage.getItem("order") ? JSON.parse(localStorage.getItem("products")) : [];
-    // Lấy hóa đơn 
+    let orders = JSON.parse(localStorage.getItem("order")) || [];
+    let products = JSON.parse(localStorage.getItem("products")) || [];
+    let orderDetails = JSON.parse(localStorage.getItem("orderDetails")) || [];
+
+    // 1. Tìm đơn hàng chung
     let order = orders.find((item) => item.id == id);
-    // Lấy chi tiết hóa đơn
-    let ctDon = getOrderDetails(id);
+    
+    // 2. Lọc lấy các sản phẩm thuộc đơn hàng này (Dùng == để tránh lỗi kiểu dữ liệu)
+    let ctDon = orderDetails.filter((item) => item.madon == id);
+
     let spHtml = `<div class="modal-detail-left"><div class="order-item-group">`;
 
-    ctDon.forEach((item) => {
-        let detaiSP = products.find(product => product.id == item.id);
-        spHtml += `<div class="order-product">
-            <div class="order-product-left">
-                <img src="${detaiSP.img}" alt="">
-                <div class="order-product-info">
-                    <h4>${detaiSP.title}</h4>
-                    <p class="order-product-note"><i class="fa-light fa-pen"></i> ${item.note}</p>
-                    <p class="order-product-quantity">SL: ${item.soluong}<p>
-                </div>
-            </div>
-            <div class="order-product-right">
-                <div class="order-product-price">
-                    <span class="order-product-current-price">${vnd(item.price)}</span>
-                </div>                         
-            </div>
-        </div>`;
-    });
+ if (ctDon.length === 0) {
+        spHtml += `<p style="padding: 20px;">Không tìm thấy chi tiết sản phẩm cho đơn hàng này.</p>`;
+    } else {
+        ctDon.forEach((item) => {
+            // Tìm thông tin hình ảnh, tên món từ danh sách products gốc
+            let detaiSP = products.find(product => product.id == item.id);
+            if (detaiSP) {
+                spHtml += `<div class="order-product">
+                    <div class="order-product-left">
+                        <img src="${detaiSP.img}" alt="">
+                        <div class="order-product-info">
+                            <h4>${detaiSP.title}</h4>
+                            <p class="order-product-note"><i class="fa-light fa-pen"></i> ${item.note || "Không có ghi chú"}</p>
+                            <p class="order-product-quantity">SL: ${item.soluong}<p>
+                        </div>
+                    </div>
+                    <div class="order-product-right">
+                        <div class="order-product-price">
+                            <span class="order-product-current-price">${vnd(item.price)}</span>
+                        </div>                         
+                    </div>
+                </div>`;
+            }
+        });
+    }
     spHtml += `</div></div>`;
     spHtml += `<div class="modal-detail-right">
         <ul class="detail-order-group">
@@ -1002,3 +1013,41 @@ window.onload = function() {
     thongKe();
     showDiscountCodes();
 };
+
+function getCustomerName(phone) {
+    // Lấy danh sách tài khoản từ LocalStorage
+    let accounts = JSON.parse(localStorage.getItem("accounts")) || [];
+    // Tìm tài khoản có số điện thoại trùng khớp
+    let user = accounts.find(acc => acc.phone == phone);
+    // Nếu thấy thì trả về tên đầy đủ, nếu không (do dữ liệu rác) thì hiện số điện thoại
+    return user ? user.fullname : phone;
+}
+
+function showOrder(arr) {
+    let orderHtml = "";
+    if (arr.length == 0) {
+        orderHtml = `<tr><td colspan="6"><div class="no-result">Không có đơn hàng nào</div></td></tr>`;
+    } else {
+        arr.forEach((item) => {
+            let statusText = item.trangthai == 0 ? "Chưa xử lý" : "Đã xử lý";
+            let statusClass = item.trangthai == 0 ? "btn-chuaxuly" : "btn-daxuly";
+            
+            // Lấy tên khách hàng từ số điện thoại
+            let nameDisplay = getCustomerName(item.khachhang);
+
+            orderHtml += `
+            <tr>
+                <td>${item.id}</td>
+                <td>${nameDisplay}</td> <td>${formatDate(item.thoigiandat)}</td>
+                <td>${vnd(item.tongtien)}</td>
+                <td><button class="${statusClass}">${statusText}</button></td>
+                <td class="control">
+                    <button class="btn-detail" onclick="detailOrder('${item.id}')">
+                        <i class="fa-regular fa-eye"></i> Chi tiết
+                    </button>
+                </td>
+            </tr>`;
+        });
+    }
+    document.getElementById("showOrder").innerHTML = orderHtml;
+}
